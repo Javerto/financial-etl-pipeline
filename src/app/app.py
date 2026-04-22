@@ -2,7 +2,7 @@
 import os
 import pandas as pd
 import streamlit as st
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
 
 # Sayfa ayarları
@@ -12,18 +12,19 @@ st.set_page_config(page_title="BIST 30 Financial Dashboard", layout="wide")
 load_dotenv()
 db_url = os.getenv("DATABASE_URL")
 
-@st.cache_data(ttl=3600) # Veriyi 1 saat boyunca cache'le
+@st.cache_data(ttl=600) # Önbelleği 10 dakikaya düşürelim (hızlı test için)
 def load_data_from_db():
     if not db_url:
-        st.error("DATABASE_URL bulunamadı. Lütfen .env dosyasını veya Secrets'i ayarlayın.")
+        st.error("DATABASE_URL bulunamadı. Lütfen Secrets ayarlarını kontrol edin.")
         return pd.DataFrame()
         
-    engine = create_engine(db_url)
-    # PostgreSQL'de sütun isimleri ve tablo isimleri küçük harfe duyarlı olabilir, 
-    # çift tırnak gerekebilir.
-    query = "SELECT * FROM financial_data ORDER BY \"Date\" ASC"
     try:
-        df = pd.read_sql(query, con=engine)
+        # SQLAlchemy 2.0 uyumlu bağlantı
+        engine = create_engine(db_url)
+        query = text("SELECT * FROM financial_data ORDER BY \"Date\" ASC")
+        
+        with engine.connect() as conn:
+            df = pd.read_sql(query, con=conn)
         return df
     except Exception as e:
         st.error(f"Veritabanı bağlantı hatası: {e}")
@@ -33,10 +34,11 @@ def main():
     st.title("📈 BIST 30 Finansal Veri Paneli")
     st.markdown("Bu panel, PostgreSQL veritabanından çekilen güncel BIST 30 hisse verilerini gösterir.")
     
-    df = load_data_from_db()
+    with st.spinner('Veriler veritabanından getiriliyor...'):
+        df = load_data_from_db()
     
     if df.empty:
-        st.warning("Veritabanında görüntülenecek veri bulunamadı. Lütfen önce run_etl.py betiğini çalıştırın.")
+        st.info("Henüz görüntülenecek veri yok. Eğer ETL yeni çalıştıysa lütfen 1-2 dakika bekleyip sayfayı yenileyin.")
         return
         
     # Hisse seçimi
@@ -46,15 +48,16 @@ def main():
     # Seçilen hisseye göre filtrele
     ticker_df = df[df['Ticker'] == selected_ticker].copy()
     
+    # Tarih sütununu düzelt
+    ticker_df['Date'] = pd.to_datetime(ticker_df['Date'])
+    
     # Grafikler
     st.subheader(f"{selected_ticker} Fiyat ve SMA 50 Grafiği")
     
-    # Streamlit line_chart için veriyi hazırlama
-    ticker_df['Date'] = pd.to_datetime(ticker_df['Date'])
     chart_data = ticker_df.set_index('Date')[['Close', 'SMA_50']]
     st.line_chart(chart_data)
     
-    # Metrikler (Son gün verisi)
+    # Metrikler
     st.subheader("Son Gün İstatistikleri")
     last_day = ticker_df.iloc[-1]
     
