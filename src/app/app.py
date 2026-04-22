@@ -21,13 +21,20 @@ def load_data_from_db():
     try:
         # SQLAlchemy 2.0 uyumlu bağlantı
         engine = create_engine(db_url)
+        
+        # Sorun giderme: Mevcut tabloları listele
+        with engine.connect() as conn:
+            result = conn.execute(text("SELECT table_name FROM information_schema.tables WHERE table_schema='public'"))
+            tables = [row[0] for row in result]
+            st.write(f"Veritabanındaki Tablolar: {tables}")
+            
         query = text("SELECT * FROM financial_data ORDER BY \"Date\" ASC")
         
         with engine.connect() as conn:
             df = pd.read_sql(query, con=conn)
         return df
     except Exception as e:
-        st.error(f"Veritabanı bağlantı hatası: {e}")
+        st.error(f"DETAYLI HATA: {e}")
         return pd.DataFrame()
 
 def main():
