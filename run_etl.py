@@ -14,7 +14,7 @@ def main():
         print("UYARI: DATABASE_URL environment variable is not set! Lütfen .env dosyasını kontrol edin.")
         sys.exit(1)
 
-    tickers = ["THYAO.IS", "GARAN.IS", "TUPRS.IS"]
+    tickers = ["THYAO.IS", "GARAN.IS", "TUPRS.IS", "YKBNK.IS", "FROTO.IS", "TOASO.IS", "AYGAZ.IS", "ARCLK.IS"]
     
     print(f"BIST 30 verileri çekiliyor: {tickers}")
     extractor = DataExtractor(tickers=tickers)
